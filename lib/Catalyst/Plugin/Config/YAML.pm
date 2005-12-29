@@ -9,12 +9,12 @@ use NEXT;
 use YAML 'LoadFile';
 use Path::Class 'file';
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 =head1 NAME
 
-Catalyst::Plugin::Config::YAML - Configure your Catalyst application via an external
-YAML file
+Catalyst::Plugin::Config::YAML - Configure your Catalyst application via an 
+external YAML file
 
 =head1 SYNOPSIS
 
@@ -32,10 +32,11 @@ different deployment environments (like development, testing or production)
 without changing your code.
 
 The configuration file is assumed to be in your application home. Its name can 
-be specified with the config parameter C<config_file> (default is F<config.yml>).
+be specified with the config parameter C<config_file> (default is 
+F<config.yml>).
 
-For any keys in the configuration file that start with C<Catalyst::>, the 
-corresponding value is taken as the configuration for that class.
+The config parameter C<config_file> can also be an array of locations (relative 
+or absolute), each found file will be loaded in order.
 
 =head2 EXTENDED METHODS
 
@@ -47,15 +48,19 @@ corresponding value is taken as the configuration for that class.
 
 sub setup {
 	my $c = shift;
-	my $config_file = $c->config->{'config_file'} || 'config.yml';
-	$config_file = file($c->config->{'home'}, $config_file) unless file($config_file)->is_absolute;
-	my $options = LoadFile($config_file);
-	foreach my $key (keys %$options) {
-		if (isa($key, 'Catalyst::Base')) {
-			$key->config(delete $options->{$key});
-		}
+	my @config_files;
+	if ( defined $c->config->{'config_file'} && ref $c->config->{'config_file'} eq 'ARRAY' ) {
+		@config_files = @{$c->config->{'config_file'}};
+	} else {
+		my $config_file = $c->config->{'config_file'} || 'config.yml';
+		push @config_files, $config_file;
 	}
-	$c->config($options);
+	foreach my $config_file ( @config_files ) {
+		$config_file = file($c->config->{'home'}, $config_file) unless file($config_file)->is_absolute;
+		next unless -e $config_file;
+		my $options = LoadFile($config_file);
+		$c->config($options);
+	}
 	$c->NEXT::setup;
 }
 
